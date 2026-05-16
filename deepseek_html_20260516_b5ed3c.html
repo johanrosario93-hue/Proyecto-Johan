@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Ventas · Interactivo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+    </script>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary: #1a3a5c;
+            --primary-light: #2563eb;
+            --accent: #3b82f6;
+            --accent-light: #dbeafe;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 15px rgba(0, 0, 0, 0.03);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.2s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--primary);
+            color: #fff;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header .date-badge {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+
+        /* Category chips */
+        .chip-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .chip-row .chip {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: #fff;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .chip-row .chip:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        .chip-row .chip.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+        .btn-pdf {
+            margin-left: auto;
+            background: #fff;
+            color: var(--primary);
+            border: 1px solid var(--border);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: var(--transition);
+        }
+        .btn-pdf:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            box-shadow: var(--shadow);
+        }
+
+        /* KPI Cards */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+        }
+        @media (max-width: 900px) {
+            .kpi-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .charts-row-2 {
+                grid-template-columns: 1fr !important;
+            }
+        }
+        @media (max-width: 560px) {
+            .kpi-row {
+                grid-template-columns: 1fr;
+            }
+            .header {
+                padding: 14px 16px;
+            }
+            .container {
+                padding: 16px 12px;
+            }
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: var(--transition);
+            border: 1px solid var(--border);
+        }
+        .kpi-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-1px);
+        }
+        .kpi-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+        .kpi-card:nth-child(1) .kpi-icon {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        .kpi-card:nth-child(2) .kpi-icon {
+            background: #e0f2fe;
+            color: #0284c7;
+        }
+        .kpi-card:nth-child(3) .kpi-icon {
+            background: #e0e7ff;
+            color: #4f46e5;
+        }
+        .kpi-card:nth-child(4) .kpi-icon {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        .kpi-info .kpi-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .kpi-info .kpi-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+        }
+        .kpi-info .kpi-sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* Charts Grid */
+        .charts-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+        .chart-card.full-width {
+            grid-column: 1 / -1;
+        }
+        .chart-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            letter-spacing: -0.2px;
+        }
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+            min-height: 260px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chart-wrapper canvas {
+            width: 100% !important;
+            height: 100% !important;
+            max-height: 300px;
+        }
+
+        /* Table */
+        .table-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .table-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+        }
+        .filters {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            align-items: center;
+        }
+        .filters select {
+            padding: 9px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+            background: #f8fafc;
+            color: var(--text);
+            cursor: pointer;
+            transition: var(--transition);
+            min-width: 160px;
+        }
+        .filters select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .btn-reset {
+            padding: 9px 18px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+        .btn-reset:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.83rem;
+            min-width: 750px;
+        }
+        table thead {
+            background: #f8fafc;
+        }
+        table thead th {
+            padding: 12px 14px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            white-space: nowrap;
+        }
+        table tbody tr:hover {
+            background: #f8fafc;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.73rem;
+            font-weight: 500;
+        }
+        .badge-electronica {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .badge-ropa {
+            background: #fce7f3;
+            color: #9d174d;
+        }
+        .badge-hogar {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .badge-deportes {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .badge-libros {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+        .badge-region {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-mono {
+            font-variant-numeric: tabular-nums;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+            font-weight: 500;
+        }
+        .row-count {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>📊 Dashboard de Ventas</h1>
+        <span class="date-badge">📅 Nov 2025 – Abr 2026</span>
+    </header>
+
+    <div id="dashboardContainer">
+        <div class="container">
+            <!-- Filtros por categoría + botón PDF -->
+            <div class="chip-row">
+                <span style="font-weight:600;margin-right:4px;">Categoría:</span>
+                <button class="chip active" data-category="">Todos</button>
+                <button class="chip" data-category="Electrónica">Electrónica</button>
+                <button class="chip" data-category="Ropa">Ropa</button>
+                <button class="chip" data-category="Hogar">Hogar</button>
+                <button class="chip" data-category="Deportes">Deportes</button>
+                <button class="chip" data-category="Libros">Libros</button>
+                <button class="btn-pdf" id="btnPDF">📄 Descargar PDF</button>
+            </div>
+
+            <!-- KPIs -->
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-icon">💰</div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Ventas Totales</div>
+                        <div class="kpi-value" id="kpi-ventas">$0</div>
+                        <div class="kpi-sub">Acumulado del período</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">📋</div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">N° Transacciones</div>
+                        <div class="kpi-value" id="kpi-transacciones">0</div>
+                        <div class="kpi-sub">Operaciones registradas</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">🎯</div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Ticket Promedio</div>
+                        <div class="kpi-value" id="kpi-ticket">$0</div>
+                        <div class="kpi-sub">Por transacción</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">🏆</div>
+                    <div class="kpi-info">
+                        <div class="kpi-label">Mejor Vendedor</div>
+                        <div class="kpi-value" id="kpi-vendedor">-</div>
+                        <div class="kpi-sub" id="kpi-vendedor-ventas">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="charts-row-2">
+                <div class="chart-card">
+                    <h3 id="tituloBarras">📦 Ventas por Categoría</h3>
+                    <div class="chart-wrapper"><canvas id="chartBarras"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3>🌍 Distribución por Región</h3>
+                    <div class="chart-wrapper"><canvas id="chartTorta"></canvas></div>
+                </div>
+            </div>
+            <div class="chart-card full-width">
+                <h3>📈 Evolución de Ventas por Mes</h3>
+                <div class="chart-wrapper"><canvas id="chartLinea"></canvas></div>
+            </div>
+
+            <!-- Tabla -->
+            <div class="table-card">
+                <h3>📝 Listado de Transacciones</h3>
+                <div class="filters">
+                    <select id="filtroProducto">
+                        <option value="">🔍 Todos los productos</option>
+                        <option value="Electrónica">Electrónica</option>
+                        <option value="Ropa">Ropa</option>
+                        <option value="Hogar">Hogar</option>
+                        <option value="Deportes">Deportes</option>
+                        <option value="Libros">Libros</option>
+                    </select>
+                    <select id="filtroRegion">
+                        <option value="">📍 Todas las regiones</option>
+                        <option value="Norte">Norte</option>
+                        <option value="Sur">Sur</option>
+                        <option value="Este">Este</option>
+                        <option value="Oeste">Oeste</option>
+                    </select>
+                    <button class="btn-reset" id="btnReset">🔄 Limpiar filtros</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Producto</th><th>Región</th><th>Vendedor</th>
+                                <th class="text-right">Cantidad</th><th class="text-right">Precio Unit.</th><th class="text-right">Total Venta</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaBody"></tbody>
+                    </table>
+                </div>
+                <div class="row-count" id="rowCount">Mostrando 50 transacciones</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ==================== DATOS EMBEBIDOS ====================
+            const datosVentas = [
+                { fecha: '2025-11-16', producto: 'Libros', region: 'Norte', vendedor: 'Ana', cantidad: 1, precio_unitario: 15, total_venta: 15 },
+                { fecha: '2025-11-17', producto: 'Electrónica', region: 'Sur', vendedor: 'Carlos', cantidad: 2, precio_unitario: 450, total_venta: 900 },
+                { fecha: '2025-11-18', producto: 'Ropa', region: 'Este', vendedor: 'Lucía', cantidad: 4, precio_unitario: 30, total_venta: 120 },
+                { fecha: '2025-11-19', producto: 'Hogar', region: 'Oeste', vendedor: 'Miguel', cantidad: 1, precio_unitario: 80, total_venta: 80 },
+                { fecha: '2025-11-20', producto: 'Deportes', region: 'Norte', vendedor: 'Sofía', cantidad: 3, precio_unitario: 65, total_venta: 195 },
+                { fecha: '2025-11-23', producto: 'Electrónica', region: 'Oeste', vendedor: 'Ana', cantidad: 1, precio_unitario: 299, total_venta: 299 },
+                { fecha: '2025-11-26', producto: 'Ropa', region: 'Norte', vendedor: 'Carlos', cantidad: 6, precio_unitario: 50, total_venta: 300 },
+                { fecha: '2025-11-29', producto: 'Hogar', region: 'Sur', vendedor: 'Lucía', cantidad: 2, precio_unitario: 110, total_venta: 220 },
+                { fecha: '2025-12-02', producto: 'Libros', region: 'Este', vendedor: 'Miguel', cantidad: 4, precio_unitario: 18, total_venta: 72 },
+                { fecha: '2025-12-05', producto: 'Deportes', region: 'Oeste', vendedor: 'Sofía', cantidad: 5, precio_unitario: 75, total_venta: 375 },
+                { fecha: '2025-12-08', producto: 'Electrónica', region: 'Norte', vendedor: 'Ana', cantidad: 2, precio_unitario: 500, total_venta: 1000 },
+                { fecha: '2025-12-11', producto: 'Ropa', region: 'Sur', vendedor: 'Carlos', cantidad: 7, precio_unitario: 35, total_venta: 245 },
+                { fecha: '2025-12-14', producto: 'Hogar', region: 'Este', vendedor: 'Lucía', cantidad: 3, precio_unitario: 95, total_venta: 285 },
+                { fecha: '2025-12-17', producto: 'Libros', region: 'Oeste', vendedor: 'Miguel', cantidad: 2, precio_unitario: 12, total_venta: 24 },
+                { fecha: '2025-12-20', producto: 'Deportes', region: 'Norte', vendedor: 'Sofía', cantidad: 10, precio_unitario: 40, total_venta: 400 },
+                { fecha: '2025-12-23', producto: 'Electrónica', region: 'Sur', vendedor: 'Ana', cantidad: 1, precio_unitario: 320, total_venta: 320 },
+                { fecha: '2025-12-26', producto: 'Ropa', region: 'Este', vendedor: 'Carlos', cantidad: 8, precio_unitario: 25, total_venta: 200 },
+                { fecha: '2025-12-29', producto: 'Hogar', region: 'Oeste', vendedor: 'Lucía', cantidad: 1, precio_unitario: 150, total_venta: 150 },
+                { fecha: '2026-01-02', producto: 'Libros', region: 'Norte', vendedor: 'Miguel', cantidad: 5, precio_unitario: 10, total_venta: 50 },
+                { fecha: '2026-01-05', producto: 'Deportes', region: 'Sur', vendedor: 'Sofía', cantidad: 4, precio_unitario: 120, total_venta: 480 },
+                { fecha: '2026-01-08', producto: 'Electrónica', region: 'Este', vendedor: 'Ana', cantidad: 3, precio_unitario: 275, total_venta: 825 },
+                { fecha: '2026-01-11', producto: 'Ropa', region: 'Oeste', vendedor: 'Carlos', cantidad: 2, precio_unitario: 60, total_venta: 120 },
+                { fecha: '2026-01-14', producto: 'Hogar', region: 'Norte', vendedor: 'Lucía', cantidad: 6, precio_unitario: 200, total_venta: 1200 },
+                { fecha: '2026-01-17', producto: 'Libros', region: 'Sur', vendedor: 'Miguel', cantidad: 1, precio_unitario: 12, total_venta: 12 },
+                { fecha: '2026-01-20', producto: 'Deportes', region: 'Este', vendedor: 'Sofía', cantidad: 7, precio_unitario: 90, total_venta: 630 },
+                { fecha: '2026-01-23', producto: 'Electrónica', region: 'Oeste', vendedor: 'Ana', cantidad: 1, precio_unitario: 499, total_venta: 499 },
+                { fecha: '2026-01-26', producto: 'Ropa', region: 'Norte', vendedor: 'Carlos', cantidad: 3, precio_unitario: 55, total_venta: 165 },
+                { fecha: '2026-01-29', producto: 'Hogar', region: 'Sur', vendedor: 'Lucía', cantidad: 4, precio_unitario: 130, total_venta: 520 },
+                { fecha: '2026-02-01', producto: 'Libros', region: 'Este', vendedor: 'Miguel', cantidad: 2, precio_unitario: 22, total_venta: 44 },
+                { fecha: '2026-02-04', producto: 'Deportes', region: 'Oeste', vendedor: 'Sofía', cantidad: 5, precio_unitario: 150, total_venta: 750 },
+                { fecha: '2026-02-07', producto: 'Electrónica', region: 'Norte', vendedor: 'Ana', cantidad: 4, precio_unitario: 210, total_venta: 840 },
+                { fecha: '2026-02-10', producto: 'Ropa', region: 'Sur', vendedor: 'Carlos', cantidad: 9, precio_unitario: 40, total_venta: 360 },
+                { fecha: '2026-02-13', producto: 'Hogar', region: 'Este', vendedor: 'Lucía', cantidad: 2, precio_unitario: 175, total_venta: 350 },
+                { fecha: '2026-02-16', producto: 'Libros', region: 'Oeste', vendedor: 'Miguel', cantidad: 3, precio_unitario: 15, total_venta: 45 },
+                { fecha: '2026-02-19', producto: 'Deportes', region: 'Norte', vendedor: 'Sofía', cantidad: 1, precio_unitario: 500, total_venta: 500 },
+                { fecha: '2026-02-22', producto: 'Electrónica', region: 'Sur', vendedor: 'Ana', cantidad: 5, precio_unitario: 180, total_venta: 900 },
+                { fecha: '2026-02-25', producto: 'Ropa', region: 'Este', vendedor: 'Carlos', cantidad: 2, precio_unitario: 70, total_venta: 140 },
+                { fecha: '2026-02-28', producto: 'Hogar', region: 'Oeste', vendedor: 'Lucía', cantidad: 1, precio_unitario: 250, total_venta: 250 },
+                { fecha: '2026-03-03', producto: 'Libros', region: 'Norte', vendedor: 'Miguel', cantidad: 4, precio_unitario: 16, total_venta: 64 },
+                { fecha: '2026-03-06', producto: 'Deportes', region: 'Sur', vendedor: 'Sofía', cantidad: 6, precio_unitario: 110, total_venta: 660 },
+                { fecha: '2026-03-09', producto: 'Electrónica', region: 'Este', vendedor: 'Ana', cantidad: 2, precio_unitario: 390, total_venta: 780 },
+                { fecha: '2026-03-12', producto: 'Ropa', region: 'Oeste', vendedor: 'Carlos', cantidad: 5, precio_unitario: 80, total_venta: 400 },
+                { fecha: '2026-03-15', producto: 'Hogar', region: 'Norte', vendedor: 'Lucía', cantidad: 3, precio_unitario: 140, total_venta: 420 },
+                { fecha: '2026-03-18', producto: 'Libros', region: 'Sur', vendedor: 'Miguel', cantidad: 1, precio_unitario: 20, total_venta: 20 },
+                { fecha: '2026-03-21', producto: 'Deportes', region: 'Este', vendedor: 'Sofía', cantidad: 8, precio_unitario: 60, total_venta: 480 },
+                { fecha: '2026-03-24', producto: 'Electrónica', region: 'Oeste', vendedor: 'Ana', cantidad: 1, precio_unitario: 450, total_venta: 450 },
+                { fecha: '2026-03-27', producto: 'Ropa', region: 'Norte', vendedor: 'Carlos', cantidad: 4, precio_unitario: 45, total_venta: 180 },
+                { fecha: '2026-03-30', producto: 'Hogar', region: 'Sur', vendedor: 'Lucía', cantidad: 2, precio_unitario: 190, total_venta: 380 },
+                { fecha: '2026-04-02', producto: 'Libros', region: 'Este', vendedor: 'Miguel', cantidad: 3, precio_unitario: 11, total_venta: 33 },
+                { fecha: '2026-04-05', producto: 'Deportes', region: 'Oeste', vendedor: 'Sofía', cantidad: 2, precio_unitario: 85, total_venta: 170 }
+            ];
+
+            const categorias = ['Electrónica', 'Ropa', 'Hogar', 'Deportes', 'Libros'];
+            const vendedores = ['Ana', 'Carlos', 'Lucía', 'Miguel', 'Sofía'];
+            const regiones = ['Norte', 'Sur', 'Este', 'Oeste'];
+            const mesesOrden = ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04'];
+            const nombresMeses = ['Nov 2025', 'Dic 2025', 'Ene 2026', 'Feb 2026', 'Mar 2026', 'Abr 2026'];
+
+            const formatearMoneda = (valor) => '$' + Math.round(valor).toLocaleString('es-CO');
+
+            // Estado de filtros
+            let currentCategory = null; // null = todos
+            let currentRegion = '';
+
+            // Referencias DOM
+            const kpiVentas = document.getElementById('kpi-ventas');
+            const kpiTransacciones = document.getElementById('kpi-transacciones');
+            const kpiTicket = document.getElementById('kpi-ticket');
+            const kpiVendedor = document.getElementById('kpi-vendedor');
+            const kpiVendedorVentas = document.getElementById('kpi-vendedor-ventas');
+            const tituloBarras = document.getElementById('tituloBarras');
+            const tablaBody = document.getElementById('tablaBody');
+            const filtroProducto = document.getElementById('filtroProducto');
+            const filtroRegion = document.getElementById('filtroRegion');
+            const btnReset = document.getElementById('btnReset');
+            const rowCount = document.getElementById('rowCount');
+            const chips = document.querySelectorAll('.chip');
+
+            // Instancias de gráficos
+            let barChart, lineChart, pieChart;
+
+            // Función para obtener datos filtrados
+            function getFilteredData(category, region) {
+                return datosVentas.filter(d => {
+                    return (!category || d.producto === category) &&
+                        (!region || d.region === region);
+                });
+            }
+
+            // Actualizar KPIs
+            function updateKPIs(filtered) {
+                const total = filtered.reduce((s, d) => s + d.total_venta, 0);
+                const transacciones = filtered.length;
+                const ticket = transacciones ? Math.round(total / transacciones) : 0;
+
+                const ventasPorVendedor = {};
+                vendedores.forEach(v => { ventasPorVendedor[v] = 0; });
+                filtered.forEach(d => { ventasPorVendedor[d.vendedor] += d.total_venta; });
+                const mejor = Object.entries(ventasPorVendedor).sort((a, b) => b[1] - a[1])[0];
+
+                kpiVentas.textContent = formatearMoneda(total);
+                kpiTransacciones.textContent = transacciones;
+                kpiTicket.textContent = formatearMoneda(ticket);
+                kpiVendedor.textContent = mejor[0];
+                kpiVendedorVentas.textContent = 'Ventas: ' + formatearMoneda(mejor[1]);
+            }
+
+            // Actualizar gráfico de barras (depende de si hay categoría seleccionada)
+            function updateBarChart(category) {
+                const filtered = getFilteredData(category, currentRegion);
+                let labels, data, titulo;
+                if (category) {
+                    // Ventas por vendedor
+                    labels = vendedores;
+                    data = vendedores.map(v => filtered.filter(d => d.vendedor === v).reduce((s, d) => s + d.total_venta, 0));
+                    titulo = '👤 Ventas por Vendedor (' + category + ')';
+                } else {
+                    // Ventas por categoría
+                    labels = categorias;
+                    data = categorias.map(c => filtered.filter(d => d.producto === c).reduce((s, d) => s + d.total_venta, 0));
+                    titulo = '📦 Ventas por Categoría';
+                }
+                tituloBarras.textContent = titulo;
+
+                if (!barChart) {
+                    const ctx = document.getElementById('chartBarras').getContext('2d');
+                    barChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Ventas Totales',
+                                data: data,
+                                backgroundColor: ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#6366f1'],
+                                borderRadius: 8,
+                                borderSkipped: false,
+                                barThickness: 36,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatearMoneda(ctx.raw) } } },
+                            scales: {
+                                y: { beginAtZero: true, ticks: { callback: v => '$' + (v/1000) + 'k', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+                                x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+                            }
+                        }
+                    });
+                } else {
+                    barChart.data.labels = labels;
+                    barChart.data.datasets[0].data = data;
+                    barChart.update();
+                }
+            }
+
+            function updateLineChart(category) {
+                const filtered = getFilteredData(category, currentRegion);
+                const ventasPorMes = mesesOrden.map(mes => {
+                    return filtered.filter(d => d.fecha.startsWith(mes)).reduce((s, d) => s + d.total_venta, 0);
+                });
+
+                if (!lineChart) {
+                    const ctx = document.getElementById('chartLinea').getContext('2d');
+                    lineChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: nombresMeses,
+                            datasets: [{
+                                label: 'Ventas Mensuales',
+                                data: ventasPorMes,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59,130,246,0.08)',
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 6,
+                                pointHoverRadius: 9,
+                                pointBackgroundColor: '#3b82f6',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 3,
+                                borderWidth: 3,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatearMoneda(ctx.raw) } } },
+                            scales: {
+                                y: { beginAtZero: true, ticks: { callback: v => '$' + (v/1000) + 'k', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+                                x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+                            }
+                        }
+                    });
+                } else {
+                    lineChart.data.datasets[0].data = ventasPorMes;
+                    lineChart.update();
+                }
+            }
+
+            function updatePieChart(category) {
+                const filtered = getFilteredData(category, currentRegion);
+                const datosRegion = regiones.map(r => filtered.filter(d => d.region === r).reduce((s, d) => s + d.total_venta, 0));
+
+                if (!pieChart) {
+                    const ctx = document.getElementById('chartTorta').getContext('2d');
+                    pieChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: regiones,
+                            datasets: [{
+                                data: datosRegion,
+                                backgroundColor: ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'],
+                                borderColor: '#ffffff',
+                                borderWidth: 3,
+                                hoverBorderWidth: 4,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, pointStyleWidth: 10, font: { size: 11 } } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => {
+                                            const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                            const pct = total ? ((ctx.raw / total)*100).toFixed(1) : 0;
+                                            return ' ' + ctx.label + ': ' + formatearMoneda(ctx.raw) + ' (' + pct + '%)';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    pieChart.data.datasets[0].data = datosRegion;
+                    pieChart.update();
+                }
+            }
+
+            // Tabla con filtros combinados
+            function renderizarTabla(filtered) {
+                const badgeProducto = (prod) => {
+                    const map = { 'Electrónica':'badge-electronica', 'Ropa':'badge-ropa', 'Hogar':'badge-hogar', 'Deportes':'badge-deportes', 'Libros':'badge-libros' };
+                    return `<span class="badge ${map[prod] || ''}">${prod}</span>`;
+                };
+                tablaBody.innerHTML = filtered.map(d => `
+                    <tr>
+                        <td>${d.fecha}</td>
+                        <td>${badgeProducto(d.producto)}</td>
+                        <td><span class="badge badge-region">${d.region}</span></td>
+                        <td>${d.vendedor}</td>
+                        <td class="text-right text-mono">${d.cantidad}</td>
+                        <td class="text-right text-mono">${formatearMoneda(d.precio_unitario)}</td>
+                        <td class="text-right text-mono"><strong>${formatearMoneda(d.total_venta)}</strong></td>
+                    </tr>
+                `).join('');
+                rowCount.textContent = `Mostrando ${filtered.length} transaccion${filtered.length !== 1 ? 'es' : ''}`;
+            }
+
+            function aplicarFiltrosTabla() {
+                const prodFiltro = filtroProducto.value;
+                const regFiltro = filtroRegion.value;
+                const filtered = datosVentas.filter(d => {
+                    return (!prodFiltro || d.producto === prodFiltro) &&
+                           (!regFiltro || d.region === regFiltro);
+                });
+                renderizarTabla(filtered);
+            }
+
+            // Actualización global del dashboard
+            function updateDashboard() {
+                const filtered = getFilteredData(currentCategory, currentRegion);
+                updateKPIs(filtered);
+                updateBarChart(currentCategory);
+                updateLineChart(currentCategory);
+                updatePieChart(currentCategory);
+                // Sincronizar tabla con los filtros actuales (producto y región)
+                filtroProducto.value = currentCategory || '';
+                filtroRegion.value = currentRegion;
+                aplicarFiltrosTabla();
+            }
+
+            // Eventos de chips
+            chips.forEach(chip => {
+                chip.addEventListener('click', function() {
+                    chips.forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    currentCategory = this.dataset.category || null;
+                    // Al seleccionar categoría, limpiamos región (o mantenemos, según prefieras; aquí la mantenemos)
+                    updateDashboard();
+                });
+            });
+
+            // Eventos de tabla
+            filtroProducto.addEventListener('change', function() {
+                currentCategory = this.value || null;
+                // Sincronizar chips
+                chips.forEach(c => {
+                    if (c.dataset.category === currentCategory || (currentCategory === null && c.dataset.category === '')) {
+                        c.classList.add('active');
+                    } else {
+                        c.classList.remove('active');
+                    }
+                });
+                updateDashboard();
+            });
+            filtroRegion.addEventListener('change', function() {
+                currentRegion = this.value;
+                updateDashboard();
+            });
+            btnReset.addEventListener('click', function() {
+                filtroProducto.value = '';
+                filtroRegion.value = '';
+                currentCategory = null;
+                currentRegion = '';
+                chips.forEach(c => c.classList.remove('active'));
+                document.querySelector('.chip[data-category=""]').classList.add('active');
+                updateDashboard();
+            });
+
+            // Botón PDF
+            document.getElementById('btnPDF').addEventListener('click', async function() {
+                const element = document.getElementById('dashboardContainer');
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#f0f2f5'
+                });
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const imgWidth = pageWidth - 20;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+                pdf.save('dashboard_ventas.pdf');
+            });
+
+            // Inicialización
+            updateDashboard();
+        })();
+    </script>
+</body>
+</html>
